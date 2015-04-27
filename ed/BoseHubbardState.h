@@ -8,9 +8,8 @@
 #define BOSEHUBBARDSTATE_H_
 
 #include <vector>
-#include <algorithm>
-#include <functional>
-#include <numeric>
+#include <map>
+#include <armadillo>
 
 namespace {
 	inline bool nonZero(unsigned int n) {return n!=0;}
@@ -18,26 +17,24 @@ namespace {
 
 class BoseHubbardState {
 public:
-	BoseHubbardState(unsigned int nrSites, unsigned int nrBosons);
+	BoseHubbardState(unsigned int nrSites, unsigned int nrBosons, double U=1., double J=1.);
 	~BoseHubbardState();
-	bool next() {
-		if(nextIndex()) {
-			--*kCurr; // decrement n_k
-			(*--kCurr)=getNrBosonsFromKCurr()+1; //Attention! Left-hand side should be evaluated first!
-			setTailToZero();
-			return true;
-		}
-		else {return false;}
-	}
+	bool next();
+	void addToH_int(unsigned long i);
+	void addToH_kin(unsigned long i);
 private:
 	const unsigned int nrSites, nrBosons;
+	const double Uover2, minusJ;
 public:
-	std::vector<unsigned int> rep; // representation of state
+	std::map<std::vector<unsigned int>, long int> allStates;
+	std::vector<unsigned int> rep; // representation of state; only public for testing
+	arma::sp_mat H_int, H_kin;
 private:
 	std::vector<unsigned int>::reverse_iterator kCurr;
 
+	void setInitialState();
 	bool nextIndex();
-	unsigned int getNrBosonsFromKCurr();
+	unsigned int getNrBosonsFromKCurr() const;
 	void setTailToZero();
 };
 
