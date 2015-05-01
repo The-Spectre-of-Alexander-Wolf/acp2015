@@ -1,5 +1,14 @@
+DIR=/home/andreas/Dokumente/Studium/tmp4/acp2015
 CC=g++
-CFLAGS=-std=c++11 -I. -O3
+LIBDIR=$(DIR)/Libraries
+TOOLSDIR=$(DIR)/tools
+INCS=-I$(LIBDIR)
+INCS+=-I$(TOOLSDIR)
+CFLAGS=-std=c++11 -I. -O3 $(INCS)
 
-BoseHubbard: BoseHubbardState.cpp
-	$(CC) -o BoseHubbard BoseHubbardState.cpp $(CFLAGS)
+# the translation rule:
+%.o: %.cpp
+	$(CC) $(CFLAGS) -c $< -o $@
+
+BoseHubbard: main_BoseHubbard.o BoseHubbardState.o
+	$(CC) -o BoseHubbard main_BoseHubbard.o BoseHubbardState.o $(INCS) $(CFLAGS)
