@@ -4,6 +4,7 @@ LIBDIR=$(DIR)/Libraries
 TOOLSDIR=$(DIR)/tools
 INCS=-I$(LIBDIR)
 INCS+=-I$(TOOLSDIR)
+INCS+=-I/home/andreas/arpack++/include
 CFLAGS=-std=c++11 -I. -O3 $(INCS)
 
 # the translation rule:
