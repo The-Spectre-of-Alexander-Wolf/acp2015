@@ -9,7 +9,7 @@ CFLAGS=-std=c++11 -I. -O3 $(INCS)
 
 # the translation rule:
 %.o: %.cpp
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) `python-config --cflags` -c $< -o $@
 
 BoseHubbard: main_BoseHubbard.o BoseHubbardState.o
-	$(CC) -o BoseHubbard main_BoseHubbard.o BoseHubbardState.o $(INCS) $(CFLAGS)
+	$(CC) -o BoseHubbard main_BoseHubbard.o BoseHubbardState.o $(INCS) $(CFLAGS) `python-config --ldflags`
