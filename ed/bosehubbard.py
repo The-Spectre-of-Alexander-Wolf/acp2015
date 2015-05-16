@@ -5,6 +5,7 @@ from scipy.sparse import *
 from scipy.sparse.linalg import *
 import scipy.special
 from math import *
+import matplotlib.pylab as plt
 
 def findLowestNZIndex(v):
     i = len(v) - 1
@@ -99,15 +100,15 @@ def getBasisAndExpectationValues(state, operators=[], conditional=True):
     else:
         return allStates
 
-def getCorrelationMatrix(i, stateRep, dictionary):
+def getCorrelationMatrix(i, state, dictionary):
     x=[]
     y=[]
     val=[]
     currentIndex=0
-    aiaj(0, i, stateRep, dictionary, currentIndex, x, y, val)
+    aiaj(0, i, state.rep, dictionary, currentIndex, x, y, val)
     while state.next():
         currentIndex+=1
-        aiaj(0, i, stateRep, dictionary, currentIndex, x, y, val)
+        aiaj(0, i, state.rep, dictionary, currentIndex, x, y, val)
     return coo_matrix((val,(x,y)), shape=(len(dictionary),len(dictionary)))
 
 # def getIndex(v):
@@ -122,61 +123,141 @@ def getCorrelationMatrix(i, stateRep, dictionary):
 #         n0 -= 1
 #     return int(result + getIndex(v[1:]))
 
-print "Setting up the vectors of the problem..."
+def plotOccupationNumberVarianceAndCondensateFraction(nrSites, nrBosons):
+    plotX=[]
+    plotOccupationNumberVariance=[]
+    plotCondensateFraction=[]
+    print "Setting up the vectors of the problem..."
 
-nrSites=10
-nrBosons=nrSites
+    # nrSites=5
+    # nrBosons=nrSites
 
-state = BHState(nrSites, nrBosons)
-allStates = getBasisAndExpectationValues(state)
+    state = BHState(nrSites, nrBosons)
+    allStates = getBasisAndExpectationValues(state)
 
-print "...Done. Setting up matrices..."
+    print "...Done. Setting up matrices..."
 
-H_int = [H_int_ofState(state.rep)] + [0] * (len(allStates)-1)
-H_int_x = []
-H_kin_x = []
-H_kin_y = []
-H_kin_val = []
-matsForSPDM = [[]*(nrSites/2+1)]
+    H_int = [H_int_ofState(state.rep)] + [0] * (len(allStates)-1)
+    H_kin_x = []
+    H_kin_y = []
+    H_kin_val = []
 
-j = 0
-H_kin_row(state.rep, allStates, j, H_kin_x, H_kin_y, H_kin_val)
-while state.next():
-    j += 1
-    if True:  # same as above
-        H_kin_row(state.rep, allStates, j, H_kin_x, H_kin_y, H_kin_val)
-        H_int[j] = H_int_ofState(state.rep)
+    j = 0
+    H_kin_row(state.rep, allStates, j, H_kin_x, H_kin_y, H_kin_val)
+    while state.next():
+        j += 1
+        if True:  # impose a condition, such as a maximum occupation number
+            H_kin_row(state.rep, allStates, j, H_kin_x, H_kin_y, H_kin_val)
+            H_int[j] = H_int_ofState(state.rep)
 
-H_i = dia_matrix(([H_int], [0]), shape=(len(H_int), len(H_int)))
-H_kin=coo_matrix((H_kin_val,(H_kin_x, H_kin_y)))
-print "...Done. Getting eigenvalues..."
-# Add Parameters U, J here
-U=1.
-J=1.
-vals, vecs = eigsh(U/2. * H_i -J*H_kin)
-print "...Done! Eigenvalues are:"
-print vals
-gs=np.transpose(vecs)[0]
-print "Occupation number variance (groundstate):"
-O_n=[]
-i=nrBosons
-while i>=0:
-    O_n=O_n+[i]*dimension(nrBosons-i, nrSites-1)
-    i-=1
-N_0=dia_matrix(([O_n],[0]), shape=(len(O_n), len(O_n)))
-N2_0=dia_matrix(([np.power(np.array(O_n),2)],[0]), shape=(len(O_n), len(O_n)))
-occupationNumberVariance=sqrt(np.transpose(gs).dot(N2_0.dot(gs))-pow(np.transpose(gs).dot(N_0.dot(gs)),2))
-print occupationNumberVariance
-print "Computing SPDM..."
-SPDM=np.transpose(gs).dot(N_0.dot(gs))*np.identity(nrSites)
-for j in range(1, nrSites/2+1): # a_0^*a_0 is <N_0>, see above
-    # get matrix a_0^*a_j
-    mat=getCorrelationMatrix(j, state.rep, allStates)
-    temp = np.transpose(gs).dot(mat.dot(gs))
-    for a in range(nrSites):
-        SPDM[a, (a+j)%nrSites]=temp
-        SPDM[a, (a-j)%nrSites]=temp
-print "...Done. Eigenvalues of SPDM:"
-SPDMeig = np.linalg.eigvalsh(SPDM)
-print SPDMeig
-#print np.amax(SPDMeig)
+    H_i = dia_matrix(([H_int], [0]), shape=(len(H_int), len(H_int)))
+    H_kin=coo_matrix((H_kin_val,(H_kin_x, H_kin_y)))
+    plt.spy(H_kin)
+    plt.show()
+    # print "...Done. Getting eigenvalues..."
+    # Add Parameters U, J here
+    J=1.
+    UoverJ=0.
+    print "Calculating for U/J="
+    while UoverJ<20:
+        print "...", UoverJ
+        plotX+=[UoverJ]
+        U=UoverJ*J # J=1, but this is for correctness...
+        vals, vecs = eigsh(U/2. * H_i -J*H_kin, which='SA', k=3)
+    # print "...Done! Eigenvalues are:"
+    # print vals
+        gs=np.transpose(vecs)[0]
+    # print gs
+    # print "Occupation number variance (groundstate):"
+        O_n=[]
+        i=nrBosons
+        while i>=0:
+            O_n=O_n+[i]*dimension(nrBosons-i, nrSites-1)
+            i-=1
+        N_0=dia_matrix(([O_n],[0]), shape=(len(O_n), len(O_n)))
+        N2_0=dia_matrix(([np.power(np.array(O_n),2)],[0]), shape=(len(O_n), len(O_n)))
+        occupationNumberVariance=sqrt(np.transpose(gs).dot(N2_0.dot(gs))-pow(np.transpose(gs).dot(N_0.dot(gs)),2))
+        plotOccupationNumberVariance+=[occupationNumberVariance]
+    # print occupationNumberVariance
+    # print "Computing SPDM..."
+        SPDM=np.transpose(gs).dot(N_0.dot(gs))*np.identity(nrSites)
+        for j in range(1, nrSites/2+1): # a_0^*a_0 is <N_0>, see above
+            # get matrix a_0^*a_j
+            mat=getCorrelationMatrix(j, state, allStates)
+            temp = np.transpose(gs).dot(mat.dot(gs))
+            for a in range(nrSites):
+                SPDM[a, (a+j)%nrSites]=temp
+                SPDM[a, (a-j)%nrSites]=temp
+    # print "...Done. Eigenvalues of SPDM:"
+        SPDMeig = np.linalg.eigvalsh(SPDM)
+        plotCondensateFraction+=[np.nanmax(SPDMeig)/nrBosons]
+        UoverJ+=1
+        # print SPDM
+        # print SPDMeig
+    plt.plot(plotX, plotOccupationNumberVariance, "b-", label="Occupation Number Variance")
+    plt.plot(plotX, plotCondensateFraction, "r-", label="Condensate Fraction")
+    plt.legend()
+    plt.show()
+
+def plotOccupationNumber(nrSites):
+    nrBosons=nrSites
+    # plot probabilities of occupation number of site 0
+    print "Setting up the vectors of the problem..."
+    state = BHState(nrSites, nrBosons)
+    allStates = getBasisAndExpectationValues(state)
+
+    print "...Done. Setting up matrices..."
+
+    H_int = [H_int_ofState(state.rep)] + [0] * (len(allStates)-1)
+    H_kin_x = []
+    H_kin_y = []
+    H_kin_val = []
+    H_NN=[[]]*(nrBosons+1) # need a list of operators for occupation number
+
+    j = 0
+    H_kin_row(state.rep, allStates, j, H_kin_x, H_kin_y, H_kin_val)
+    while state.next():
+        j += 1
+        if True:  # impose a condition, such as a maximum occupation number
+            H_kin_row(state.rep, allStates, j, H_kin_x, H_kin_y, H_kin_val)
+            H_int[j] = H_int_ofState(state.rep)
+            for i in range(len(H_NN)):
+                if i==state.rep[0]:
+                    H_NN[i]=np.append(H_NN[i], [1])
+                else:
+                    H_NN[i]=np.append(H_NN[i], [0])
+    H_i = dia_matrix(([H_int], [0]), shape=(len(H_int), len(H_int)))
+    H_kin=coo_matrix((H_kin_val,(H_kin_x, H_kin_y)))
+    # plt.spy(H_kin)
+    # plt.show()
+    print "U/J<<0..."
+    U=.1
+    J=1.
+    vals, vecs = eigsh(U/2. * H_i -J*H_kin, which='SA', k=3)
+    gs=np.transpose(vecs)[0]
+    plotX=range(len(H_NN))
+    plotY=[]
+    for i in plotX:
+        tempMat=dia_matrix((H_NN[i],[0]), shape=(len(gs),len(gs)))
+        plotY+=[np.transpose(gs).dot(tempMat.dot(gs))]
+    plt.plot(plotX, plotY, label="U<<J")
+    print "U/J>>0..."
+    U=1.
+    J=.1
+    vals, vecs = eigsh(U/2. * H_i -J*H_kin, which='SA', k=3)
+    gs=np.transpose(vecs)[0]
+    plotY=[]
+    for i in plotX:
+        tempMat=dia_matrix((H_NN[i],[0]), shape=(len(gs),len(gs)))
+        plotY+=[np.transpose(gs).dot(tempMat.dot(gs))]
+    plt.plot(plotX, plotY, label="U>>J")
+    plt.legend()
+    plt.show()
+
+def plotMomentumDistribution(nrSites, UoverJ):
+    nrBosons=nrSites  # unit filling
+    J=1.
+    U=UoverJ*J  # J=1., but for clearity
+
+# plotOccupationNumberVarianceAndCondensateFraction(7, 7)
+plotOccupationNumber(7)
