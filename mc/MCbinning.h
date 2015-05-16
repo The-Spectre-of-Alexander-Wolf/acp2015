@@ -7,38 +7,47 @@
 
 #include <deque>
 #include <cmath>
+#include <algorithm>
 
 template<typename T>
 class MCbinning {
 public:
-    MCbinning(): values(1, T()), counter(0) {}
-    void add(T val)
+    MCbinning(unsigned int maxLevel=10):
+            values(maxLevel, T()),
+            values2(maxLevel, T()),
+            variances(maxLevel, T()),
+            mean(0.),
+            counter(0) {}
+
+    void add(const T& val)
     {
-        ++counter;
-        // update all possible bins
-        T oldVal(values[0]);
-        std::swap(values[0],val); // recycle val!
-        // val & oldVal store the same now
+        for_each(++values.begin(), values.end(), [&](T& x){x+=val;});
+        // update mean value: mean=(mean*counter+val)/(counter+1)
+        mean*=counter;
+        mean+=val;
+        mean/=++counter;
+        // update the bins
         auto i(counter);
-        std::cout << "counter=" << i << " " << ((i%2)!=0?"true":"false") << std::endl;
-        for (int j(1); i%2==0; ++j) {
-            std::cout << "j=" << j << " i=" << i;
-            i/=2;
-            oldVal=values[j];
-            if (j<values.size()) {
-                values[j]=(val+values[j-1])/2;
+        values2[0]=(values2[0]*(counter-1)+val*val)/counter;
+        for (int j(1); j!=values.size(); ++j) {
+            if (i%2==0) {
+                i/=2;
+                values2[j]=(values2[j]*(i-1)+values[j]*values[j]*pow(2,-2*j))/i;
+                values[j]=0;
             }
-            else {
-                values.push_back((val+values[j-1])/2);
-            }
-            std::cout << " val: " << values[j] << std::endl;
-            std::swap(val, oldVal);
+            else {break;}
         }
     }
 
-    bool evaluate(void) {return false;}
+    bool evaluate(void)
+    {
+        transform(values2.cbegin(), values2.cend(), variances.rbegin(), [&](const T& x){return x-(mean*mean); std::cout << x << std::endl;});
+
+        return is_sorted(variances.cbegin(), variances.cend());
+    }
 //private:
-    std::deque<T> values;
+    std::deque<T> values, values2, variances;
+    double mean;
     long long counter;
 };
 
